@@ -1,0 +1,11 @@
+node_modules/
+dist/
+rust/target/
+rust/pkg/
+src/generation/wasm-pkg/
+*.wasm
+!src/generation/wasm-pkg/*.wasm
+.vite/
+*.local
+.DS_Store
+.playwright-mcp/
