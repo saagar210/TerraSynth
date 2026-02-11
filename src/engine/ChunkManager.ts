@@ -1,15 +1,20 @@
 import * as THREE from 'three';
 import type { Chunk, ChunkData, WorldConfig } from '../types/terrain';
 import { createChunkLOD, disposeChunkLOD } from './TerrainChunk';
-import { generateChunk } from '../generation/WasmBridge';
+import {
+  ChunkWorkerBridge,
+  isChunkRequestCancelledError,
+} from '../generation/ChunkWorkerBridge';
 
 export class ChunkManager {
   private chunks = new Map<string, Chunk>();
-  private generationQueue: Array<{ x: number; z: number; distance: number }> = [];
+  private inFlight = new Set<string>();
   private scene: THREE.Scene;
   private config: WorldConfig;
   private maxChunksPerFrame = 2;
   private cacheMaxSize = 500;
+  private generationId = 0;
+  private workerBridge: ChunkWorkerBridge;
   chunkCount = 0;
   onChunkLoaded: ((cx: number, cz: number, biomeData: Uint8Array, size: number) => void) | null = null;
   onChunkUnloaded: ((cx: number, cz: number) => void) | null = null;
@@ -17,6 +22,7 @@ export class ChunkManager {
   constructor(scene: THREE.Scene, config: WorldConfig) {
     this.scene = scene;
     this.config = config;
+    this.workerBridge = new ChunkWorkerBridge();
   }
 
   updateConfig(config: WorldConfig): void {
@@ -37,6 +43,9 @@ export class ChunkManager {
     this.config = config;
 
     if (needsRegenerate) {
+      const previousGenerationId = this.generationId;
+      this.generationId++;
+      this.workerBridge.cancelGenerationRequests(previousGenerationId);
       this.clearAll();
     }
   }
@@ -48,7 +57,6 @@ export class ChunkManager {
     const vd = this.config.viewDistance;
 
     // Determine which chunks should be loaded
-    const needed = new Set<string>();
     const toGenerate: Array<{ x: number; z: number; distance: number }> = [];
 
     for (let dz = -vd; dz <= vd; dz++) {
@@ -56,11 +64,11 @@ export class ChunkManager {
         const cx = camChunkX + dx;
         const cz = camChunkZ + dz;
         const key = `${cx},${cz}`;
-        needed.add(key);
-
         if (!this.chunks.has(key)) {
-          const dist = dx * dx + dz * dz;
-          toGenerate.push({ x: cx, z: cz, distance: dist });
+          if (!this.inFlight.has(key)) {
+            const dist = dx * dx + dz * dz;
+            toGenerate.push({ x: cx, z: cz, distance: dist });
+          }
         } else {
           const chunk = this.chunks.get(key)!;
           chunk.lastUsed = performance.now();
@@ -90,9 +98,9 @@ export class ChunkManager {
       if (generated >= this.maxChunksPerFrame) break;
 
       const key = `${item.x},${item.z}`;
-      if (this.chunks.has(key)) continue;
+      if (this.chunks.has(key) || this.inFlight.has(key)) continue;
 
-      this.loadChunk(item.x, item.z);
+      this.requestChunk(item.x, item.z);
       generated++;
     }
 
@@ -104,8 +112,7 @@ export class ChunkManager {
     }
   }
 
-  private loadChunk(cx: number, cz: number): void {
-    const chunkData = generateChunk(this.config, cx, cz);
+  private addChunk(cx: number, cz: number, chunkData: ChunkData): void {
     const lod = createChunkLOD(
       chunkData,
       cx,
@@ -132,6 +139,34 @@ export class ChunkManager {
     this.onChunkLoaded?.(cx, cz, chunkData.biomeMap, chunkData.width);
   }
 
+  private requestChunk(cx: number, cz: number): void {
+    const key = `${cx},${cz}`;
+    this.inFlight.add(key);
+
+    const requestedGenerationId = this.generationId;
+    const configSnapshot = { ...this.config };
+
+    this.workerBridge
+      .requestChunk(configSnapshot, cx, cz, requestedGenerationId)
+      .then((chunkData) => {
+        this.inFlight.delete(key);
+
+        if (requestedGenerationId !== this.generationId) return;
+        if (this.chunks.has(key)) return;
+
+        this.addChunk(cx, cz, chunkData);
+      })
+      .catch((error) => {
+        this.inFlight.delete(key);
+
+        if (isChunkRequestCancelledError(error)) {
+          return;
+        }
+
+        console.error(`Failed to generate chunk ${key}:`, error);
+      });
+  }
+
   private removeChunk(key: string): void {
     const chunk = this.chunks.get(key);
     if (!chunk) return;
@@ -155,7 +190,7 @@ export class ChunkManager {
     for (const key of [...this.chunks.keys()]) {
       this.removeChunk(key);
     }
-    this.generationQueue = [];
+    this.inFlight.clear();
   }
 
   getHeightAt(worldX: number, worldZ: number): number | null {
@@ -177,5 +212,6 @@ export class ChunkManager {
 
   dispose(): void {
     this.clearAll();
+    this.workerBridge.dispose();
   }
 }
