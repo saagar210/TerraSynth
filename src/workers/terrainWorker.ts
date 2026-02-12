@@ -81,7 +81,8 @@ const workerScope = self as unknown as {
 
 async function ensureWasm(): Promise<WasmModule> {
   if (!wasmModule) {
-    const mod = await import('../generation/wasm-pkg/terra_wasm.js') as unknown as WasmModule;
+    const wasmModulePath = '../generation/wasm-pkg/terra_wasm.js';
+    const mod = await import(/* @vite-ignore */ wasmModulePath) as unknown as WasmModule;
     wasmReady = mod.default().then(() => {
       wasmModule = mod;
     });

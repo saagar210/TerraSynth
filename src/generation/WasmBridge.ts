@@ -44,9 +44,18 @@ interface WasmChunkData {
 let wasmModule: WasmModule | null = null;
 
 export async function initWasm(): Promise<void> {
-  const mod = await import('./wasm-pkg/terra_wasm.js') as unknown as WasmModule;
-  await mod.default();
-  wasmModule = mod;
+  const wasmModulePath = './wasm-pkg/terra_wasm.js';
+
+  try {
+    const mod = await import(/* @vite-ignore */ wasmModulePath) as unknown as WasmModule;
+    await mod.default();
+    wasmModule = mod;
+  } catch (error) {
+    throw new Error(
+      `Failed to load WASM module at ${wasmModulePath}. Run \"pnpm build:wasm\" first.`,
+      { cause: error },
+    );
+  }
 }
 
 function getWasm(): WasmModule {

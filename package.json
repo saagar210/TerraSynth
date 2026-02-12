@@ -10,7 +10,8 @@
     "build:wasm": "cd rust && ./build.sh",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:rust": "cd rust && cargo test"
+    "test:rust": "cd rust && cargo test",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "three": "^0.170.0"
@@ -19,8 +20,8 @@
     "@types/three": "^0.170.0",
     "typescript": "^5.7.0",
     "vite": "^6.0.0",
-    "vite-plugin-wasm": "^3.4.0",
     "vite-plugin-top-level-await": "^1.5.0",
+    "vite-plugin-wasm": "^3.4.0",
     "vitest": "^3.0.0"
   },
   "pnpm": {
