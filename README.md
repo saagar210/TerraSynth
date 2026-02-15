@@ -200,13 +200,6 @@ Export your terrain in multiple formats:
 - **Settings JSON** — Export/import generation parameters
 
 
-## 📚 Additional Documentation
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [Development Guide](docs/DEVELOPMENT.md)
-- [Deployment Guide](docs/DEPLOYMENT.md)
-- [API Reference](docs/API_REFERENCE.md)
-
 ## ✅ Quality Gates
 
 ```bash
