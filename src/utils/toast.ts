@@ -2,6 +2,10 @@
  * Display a temporary toast message on screen.
  */
 export function showToast(message: string, duration: number = 5000): void {
+  if (typeof document === 'undefined' || !document.body) {
+    return;
+  }
+
   const toast = document.createElement('div');
   toast.className = 'toast toast--error';
   toast.textContent = message;

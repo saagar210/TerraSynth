@@ -9,3 +9,5 @@ src/generation/wasm-pkg/
 *.local
 .DS_Store
 .playwright-mcp/
+PLAN.md
+codex/
