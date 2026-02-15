@@ -109,6 +109,10 @@ export class ChunkWorkerBridge {
 
     if (message.type === 'error') {
       pending.reject(new Error(message.message));
+      // Show user-facing error toast
+      import('../utils/toast').then(({ showToast }) => {
+        showToast(`Terrain generation failed: ${message.message}`, 5000);
+      });
       return;
     }
 
@@ -116,10 +120,15 @@ export class ChunkWorkerBridge {
   };
 
   private onError = (event: ErrorEvent): void => {
+    const errorMessage = event.message || 'Chunk worker crashed';
     for (const [, pending] of this.pending) {
-      pending.reject(new Error(event.message || 'Chunk worker crashed'));
+      pending.reject(new Error(errorMessage));
     }
     this.pending.clear();
+    // Show user-facing error toast
+    import('../utils/toast').then(({ showToast }) => {
+      showToast(`Worker error: ${errorMessage}`, 5000);
+    });
   };
 
   dispose(): void {
