@@ -3,12 +3,14 @@ import { ChunkManager } from './engine/ChunkManager';
 import { Water } from './engine/Water';
 import { createFog, removeFog } from './engine/Fog';
 import { FlyControls } from './controls/FlyControls';
+import { KeyboardControls } from './controls/KeyboardControls';
 import { FPSCounter } from './ui/FPSCounter';
 import { ControlPanel } from './ui/Panel';
 import { Minimap } from './ui/Minimap';
 import { initWasm } from './generation/WasmBridge';
 import { defaultWorldConfig, type WorldConfig } from './types/terrain';
 import { loadConfigFromHash, updateHash } from './utils/hashState';
+import { debounce } from './utils/debounce';
 
 async function main(): Promise<void> {
   const app = document.getElementById('app');
@@ -63,7 +65,9 @@ async function main(): Promise<void> {
   // Create minimap
   const minimap = new Minimap(config.chunkSize);
   minimap.onTeleport((worldX, worldZ) => {
-    sceneManager.camera.position.set(worldX, 100, worldZ);
+    const height = chunkManager.getHeightAt(worldX, worldZ);
+    const cameraY = height !== null ? height + 10 : 100; // +10 to place camera above terrain
+    sceneManager.camera.position.set(worldX, cameraY, worldZ);
   });
 
   chunkManager.onChunkLoaded = (cx, cz, biomeData, size) => {
@@ -79,8 +83,8 @@ async function main(): Promise<void> {
   hint.innerHTML = 'Click to fly | WASD Move | Mouse Look | Scroll Speed | Space/Shift Up/Down';
   document.body.appendChild(hint);
 
-  // Config change handler
-  const handleConfigChange = (newConfig: WorldConfig): void => {
+  // Config change handler (debounced to prevent lag spikes)
+  const handleConfigChangeImmediate = (newConfig: WorldConfig): void => {
     const waterChanged = newConfig.generateWater !== config.generateWater ||
       newConfig.seaLevel !== config.seaLevel ||
       newConfig.heightMultiplier !== config.heightMultiplier;
@@ -103,14 +107,34 @@ async function main(): Promise<void> {
     }
   };
 
+  const handleConfigChange = debounce(handleConfigChangeImmediate, 300);
+
   // Create control panel with export
-  const _panel = new ControlPanel(
+  const controlPanel = new ControlPanel(
     config,
     handleConfigChange,
     () => sceneManager.renderer,
     () => sceneManager.scene,
     () => sceneManager.camera,
   );
+
+  // Initialize keyboard shortcuts
+  const _keyboardControls = new KeyboardControls({
+    onTogglePaused: () => {
+      console.log('Generation pause toggled (not yet implemented)');
+    },
+    onReset: () => {
+      const resetConfig = { ...defaultWorldConfig() };
+      handleConfigChangeImmediate(resetConfig);
+      // Note: UI inputs won't visually update, but terrain will regenerate
+    },
+    onTogglePanelVisibility: () => {
+      const panel = document.querySelector('.panel') as HTMLElement;
+      if (panel) {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      }
+    },
+  });
 
   // Listen for settings import
   window.addEventListener('terrasnyth:import', ((event: CustomEvent) => {
