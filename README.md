@@ -240,6 +240,9 @@ Tested on M1 MacBook Pro:
 # Dev server with hot reload
 pnpm dev
 
+# Lean dev server (ephemeral build caches + auto cleanup on exit)
+pnpm dev:lean
+
 # Rebuild WASM after Rust changes
 cd rust && ./build.sh
 
@@ -252,6 +255,28 @@ cd rust && cargo test
 # Production build
 pnpm build
 ```
+
+### Lean Dev vs Normal Dev
+
+Use these modes depending on whether you prioritize startup speed or disk usage:
+
+- **Normal dev (`pnpm dev`)** — fastest repeated startup, because Vite keeps optimized cache files in `node_modules/.vite`.
+- **Lean dev (`pnpm dev:lean`)** — uses an ephemeral cache directory in your OS temp folder and removes it automatically on exit, so repo disk usage stays flatter.
+
+Cleanup commands:
+
+```bash
+# Remove only heavy build artifacts (keeps dependencies)
+pnpm clean:heavy
+
+# Remove all reproducible local caches/artifacts including node_modules
+pnpm clean:local
+```
+
+Tradeoff summary:
+
+- **Less disk usage**: `pnpm dev:lean`, `pnpm clean:heavy`
+- **Faster warm starts**: `pnpm dev` (retains local build cache)
 
 ## 📝 License
 
