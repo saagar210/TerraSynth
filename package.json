@@ -11,7 +11,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rust": "cd rust && cargo test",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "dev:lean": "./scripts/dev-lean.sh",
+    "clean:heavy": "./scripts/clean-heavy.sh",
+    "clean:local": "./scripts/clean-local.sh"
   },
   "dependencies": {
     "three": "^0.170.0"
